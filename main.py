@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
-from keypoints import get_Keypoints
-from get_F_E import plot1, ransacF, get_E
-from read_params import get_K
+from Utils import *
 
 def main():
     img1 = cv2.imread('dataset/artroom/im0.png')
