@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 def getInliers(pt1, pt2, F):
   value = np.dot(pt1.T,np.dot(F,pt2))
@@ -175,12 +176,21 @@ def get_Keypoints(img1, img2):
     source_points = np.float32([keypoints_1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     destination_points = np.float32([keypoints_2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-    key_pts1 = np.zeros((source_points.shape[0],2))
-    key_pts2 = np.zeros((destination_points.shape[0],2))
+    # key_pts1 = np.zeros((source_points.shape[0],2))
+    # key_pts2 = np.zeros((destination_points.shape[0],2))
+    # for i in range(source_points.shape[0]):
+    #   key_pts1[i] = source_points[i]
+    #   key_pts2[i] = destination_points[i]
 
-    for i in range(source_points.shape[0]):
-      key_pts1[i] = source_points[i]
-      key_pts2[i] = destination_points[i]
+
+    # choosing random 30 points #
+    random_points = random.sample(range(0, source_points.shape[0]), 30)
+    key_pts1 = np.zeros((len(random_points),2))
+    key_pts2 = np.zeros((len(random_points),2))
+    for i in range(len(random_points)):
+      key_pts1[i] = source_points[random_points[i]]
+      key_pts2[i] = destination_points[random_points[i]]
+    # choosing random 40 points #
     
     key_pts1 = three_point_form(key_pts1)
     key_pts2 = three_point_form(key_pts2)
@@ -267,12 +277,3 @@ def rectify(img1,img2,key1, key2, F):
     rect_img2 = cv2.warpPerspective(gray_2, H2, (w2,h2))
 
     return H1, H2, new_p1, new_p2, rect_img1, rect_img2
-
-
-
-   
-
-      
-
-
-
