@@ -217,3 +217,62 @@ def get_K(path):
                     K.append([x1,x2,x3])
     K = np.array(K).reshape(3,-1)
     return K
+
+def CameraPose(E, key1):
+    U,S,V = np.linalg.svd(E)
+    W = np.array([[0, -1, 0],[1,0,0],[0,0,1]])
+
+    R1 = U.dot(W.dot(V))
+    R2 = U.dot(np.transpose(W).dot(V))
+    C1 = U[:,2]
+    C2 = -U[:,2]
+    Poses = [[R1, C1], [R1, C2], [R2, C1], [R2, C2]]
+    p_len = 0
+    for pose in Poses:
+        points = []
+        for i in range(key1.shape[0]):
+            point = key1[i]
+            V = point-pose[1]
+            z = np.dot(pose[0][2], V)
+            if z>0:
+               points.append(point)
+        if len(points)>p_len:
+           p_len = len(points)
+           best_pose = pose
+    return best_pose[0], best_pose[1]
+
+def rectify(img1,img2,key1, key2, F):
+    pt1 = np.float32(np.delete(key1,2,1))
+    pt2 = np.float32(np.delete(key2,2,1))
+    gray_1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    gray_2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    h1,w1 = gray_1.shape
+    h2,w2 = gray_2.shape
+    _, H1, H2 = cv2.stereoRectifyUncalibrated(pt1, pt2,F, (w1,h1))
+    new_p1 = np.zeros((pt1.shape))
+    new_p2 = np.zeros((pt2.shape))
+    for i in range(key1.shape[0]):
+        temp_new = np.dot(H1, key1[i])
+        x = temp_new[0]/temp_new[2]
+        y = temp_new[1]/temp_new[2]
+        new_p1[i][0] = x
+        new_p1[i][1] = y
+
+        temp_new = np.dot(H2, key2[i])
+        x = temp_new[0]/temp_new[2]
+        y = temp_new[1]/temp_new[2]
+        new_p2[i][0] = x
+        new_p2[i][1] = y
+    rect_img1 = cv2.warpPerspective(gray_1, H1, (w1,h1))
+    rect_img2 = cv2.warpPerspective(gray_2, H2, (w2,h2))
+
+    return H1, H2, new_p1, new_p2, rect_img1, rect_img2
+
+
+
+   
+
+      
+
+
+
