@@ -3,7 +3,6 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import math
 
 # np.seterr(divide='ignore', invalid='ignore')
 def getInliers(pt1, pt2, F):
@@ -99,7 +98,11 @@ def get_E(F, K):
    return E
    
 def plot1(img1,img2, F_mat, P1, P2):
-    random_points = random.sample(range(0, P1.shape[0]), 10)
+    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
+    img1 = cv2.cvtColor(img1, cv2.COLOR_GRAY2BGR)
+    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+    img2 = cv2.cvtColor(img2, cv2.COLOR_GRAY2BGR)
+    random_points = random.sample(range(0, P1.shape[0]), 30)
     w = img2.shape[1]
     num = 1
     for i in random_points:
@@ -107,16 +110,16 @@ def plot1(img1,img2, F_mat, P1, P2):
         
         p1 = (0,-int(c1/b1))
         p2 = (w, -int((a1*w + c1)/b1))
-        cv2.line(img2, p1, p2, (0,255,0),2)
-        cv2.circle(img2,(int(P2[i][0]), int(P2[i][1])),2,(255,0,0),5)
+        cv2.line(img2, p1, p2, (0,255,0),1)
+        cv2.circle(img2,(int(P2[i][0]), int(P2[i][1])),2,(0,0,255),5)
         num+=1
     num = 1
     for i in random_points:
         a1,b1,c1 = np.matmul(P2[i].transpose(), F_mat)
         p1 = (0,-int(c1/b1))
         p2 = (w, -int((a1*w + c1)/b1))
-        cv2.line(img1, p1, p2, (0,255,0),2)
-        cv2.circle(img1,(int(P1[i][0]), int(P1[i][1])),2,(255,0,0),5)
+        cv2.line(img1, p1, p2, (0,255,0),1)
+        cv2.circle(img1,(int(P1[i][0]), int(P1[i][1])),2,(0,0,255),5)
         num+=1
     imgs = []
     imgs.append(img1)
@@ -196,6 +199,8 @@ def get_Keypoints(img1, img2):
 def get_params(path):
     img1 = cv2.imread(path+'im0.png')
     img2 = cv2.imread(path+'im1.png')
+    img1 = cv2.resize(img1, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
+    img2 = cv2.resize(img2, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
     K = []
     with open(path+'/calib.txt') as f:
         lines = f.readlines()

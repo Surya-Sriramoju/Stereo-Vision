@@ -12,20 +12,14 @@ def main():
       if option == 1:
         path = 'dataset/artroom/'
         img1, img2, K, baseline, f = get_params(path)
-        img1 = cv2.resize(img1, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
-        img2 = cv2.resize(img2, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
         break
       elif option == 2:
         path = 'dataset/chess/'
         img1, img2, K, baseline, f = get_params(path)
-        img1 = cv2.resize(img1, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
-        img2 = cv2.resize(img2, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
         break
       elif option == 3:
         path = 'dataset/ladder/'
         img1, img2, K, baseline, f = get_params(path)
-        img1 = cv2.resize(img1, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
-        img2 = cv2.resize(img2, None, fx = 0.3, fy = 0.3, interpolation = cv2.INTER_AREA)
         break
       else:
         print("incorrect option, try again\n")
@@ -42,7 +36,7 @@ def main():
             break
         except Exception:
            continue
-    cv2.imshow('Epipolar lines', np.hstack([line_img1, line_img2]))
+    cv2.imshow('Epipolar_lines', np.hstack([line_img1, line_img2]))
     cv2.waitKey(0)
     print("Fundamental Matrix: ")
     print(F)
