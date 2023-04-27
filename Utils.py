@@ -3,7 +3,9 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import math
 
+# np.seterr(divide='ignore', invalid='ignore')
 def getInliers(pt1, pt2, F):
   value = np.dot(pt1.T,np.dot(F,pt2))
   return abs(value)
@@ -45,7 +47,7 @@ def computeF(pts1, pts2):
   return F
 
 def ransac_alg(points1, points2, thresh):
-  max_it = 1000
+  max_it = 2500
   j = 0
   best_F = np.zeros((3,3))
   num_of_inliers = 0
@@ -81,27 +83,21 @@ def transform_points(P,T):
   return x.T
 
 def ransacF(points1, points2, thresh):
-  # Find normalization matrix
   P1,T1 = normalize(points1)
   P2,T2 = normalize(points2)
-  # Transform point set 1 and 2
   P1_trans = transform_points(P1,T1)
   P2_trans = transform_points(P2,T2)
-
-  # RANSAC based 8-point algorithm
   F = ransac_alg(P1_trans,P2_trans, thresh)
   f_mat = np.dot(np.transpose(T2), np.dot(F, T1))
   return f_mat
 
-
 def get_E(F, K):
-   E1 = np.dot(K.T, np.dot(F,K))
-   U,S,V = np.linalg.svd(E1)
+   E = np.dot(K.T, np.dot(F,K))
+   U,S,V = np.linalg.svd(E)
    S = [1,1,0]
-   E2 = np.dot(U, np.dot(np.diag(S), V))
-   return E1,E2
+   E = np.dot(U, np.dot(np.diag(S), V))
+   return E
    
-
 def plot1(img1,img2, F_mat, P1, P2):
     random_points = random.sample(range(0, P1.shape[0]), 10)
     w = img2.shape[1]
@@ -130,6 +126,7 @@ def plot1(img1,img2, F_mat, P1, P2):
     for img, ax in zip(imgs, axs):
         ax.imshow(img)
     plt.show()
+    return img1, img2
 
 def three_point_form(points):
   points1 = np.zeros((points.shape[0],3))
@@ -139,7 +136,6 @@ def three_point_form(points):
     points1[i][1] = points[i][1]
     points1[i][2] = 1
   return points1
-
 
 def get_Keypoints(img1, img2):
     img1_Gray = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
@@ -160,7 +156,7 @@ def get_Keypoints(img1, img2):
     good_matches = []
     i = 0
     for m,n in matches:
-        if m.distance < 0.7*n.distance:
+        if m.distance < 0.75*n.distance:
             matchesMask[i]=[1,0]
             good_matches.append(m)
             i += 1
@@ -176,20 +172,20 @@ def get_Keypoints(img1, img2):
     source_points = np.float32([keypoints_1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
     destination_points = np.float32([keypoints_2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
-    # key_pts1 = np.zeros((source_points.shape[0],2))
-    # key_pts2 = np.zeros((destination_points.shape[0],2))
-    # for i in range(source_points.shape[0]):
-    #   key_pts1[i] = source_points[i]
-    #   key_pts2[i] = destination_points[i]
+    key_pts1 = np.zeros((source_points.shape[0],2))
+    key_pts2 = np.zeros((destination_points.shape[0],2))
+    for i in range(source_points.shape[0]):
+      key_pts1[i] = source_points[i]
+      key_pts2[i] = destination_points[i]
 
 
     # choosing random 30 points #
-    random_points = random.sample(range(0, source_points.shape[0]), 30)
-    key_pts1 = np.zeros((len(random_points),2))
-    key_pts2 = np.zeros((len(random_points),2))
-    for i in range(len(random_points)):
-      key_pts1[i] = source_points[random_points[i]]
-      key_pts2[i] = destination_points[random_points[i]]
+    # random_points = random.sample(range(0, source_points.shape[0]), 30)
+    # key_pts1 = np.zeros((len(random_points),2))
+    # key_pts2 = np.zeros((len(random_points),2))
+    # for i in range(len(random_points)):
+    #   key_pts1[i] = source_points[random_points[i]]
+    #   key_pts2[i] = destination_points[random_points[i]]
     # choosing random 40 points #
     
     key_pts1 = three_point_form(key_pts1)
@@ -197,10 +193,13 @@ def get_Keypoints(img1, img2):
 
     return key_pts1, key_pts2
 
-def get_K(path):
+def get_params(path):
+    img1 = cv2.imread(path+'im0.png')
+    img2 = cv2.imread(path+'im1.png')
     K = []
     with open(path+'/calib.txt') as f:
         lines = f.readlines()
+        baseline = float(lines[3][9:])
         k_string = lines[0].split(';')
         for i in k_string:
             if ('cam0' in i) or ('cam1' in i):
@@ -226,7 +225,9 @@ def get_K(path):
                     x3 = float(x3)
                     K.append([x1,x2,x3])
     K = np.array(K).reshape(3,-1)
-    return K
+    f = K[0][0]
+    
+    return img1, img2, K, baseline, f
 
 def CameraPose(E, key1):
     U,S,V = np.linalg.svd(E)
@@ -262,18 +263,111 @@ def rectify(img1,img2,key1, key2, F):
     new_p1 = np.zeros((pt1.shape))
     new_p2 = np.zeros((pt2.shape))
     for i in range(key1.shape[0]):
+
         temp_new = np.dot(H1, key1[i])
-        x = temp_new[0]/temp_new[2]
-        y = temp_new[1]/temp_new[2]
+        x = int(temp_new[0]/temp_new[2])
+        y = int(temp_new[1]/temp_new[2])
         new_p1[i][0] = x
         new_p1[i][1] = y
 
+
         temp_new = np.dot(H2, key2[i])
-        x = temp_new[0]/temp_new[2]
-        y = temp_new[1]/temp_new[2]
+        x = int(temp_new[0]/temp_new[2])
+        y = int(temp_new[1]/temp_new[2])
         new_p2[i][0] = x
         new_p2[i][1] = y
     rect_img1 = cv2.warpPerspective(gray_1, H1, (w1,h1))
     rect_img2 = cv2.warpPerspective(gray_2, H2, (w2,h2))
+    # return rect_img1, rect_img2
 
     return H1, H2, new_p1, new_p2, rect_img1, rect_img2
+
+def get_lines_on_img(points1, points2,F,rect_img1, rect_img2):
+    line1 = cv2.computeCorrespondEpilines(points2.reshape(-1, 1, 2), 2, F)
+    line1 = line1.reshape(-1,3)
+
+    line2 = cv2.computeCorrespondEpilines(points1.reshape(-1, 1, 2), 2, F)
+    line2 = line2.reshape(-1,3)
+
+    img1 = cv2.cvtColor(rect_img1, cv2.COLOR_GRAY2BGR)
+    img2 = cv2.cvtColor(rect_img2, cv2.COLOR_GRAY2BGR)
+    h1,w1,_ = img1.shape
+    h2,w2,_ = img2.shape
+
+    random_points = random.sample(range(0, line1.shape[0]), 30)
+
+    for i in random_points:
+       a1,b1,c1 = line1[i]
+       p1 = (0,-int(c1/b1))
+       p2 = (w1, -int((a1*w1 + c1)/b1))
+       cv2.line(img1, p1, p2, (0,255,0),1)
+       cv2.circle(img1,(int(points1[i][0]), int(points1[i][1])),2,(0,0,255),5)
+
+    for i in random_points:
+       a1,b1,c1 = line2[i]
+       p1 = (0,-int(c1/b1))
+       p2 = (w1, -int((a1*w1 + c1)/b1))
+       cv2.line(img2, p1, p2, (0,255,0),1)
+       cv2.circle(img2,(int(points2[i][0]), int(points2[i][1])),2,(0,0,255),5)
+    return img1, img2
+
+def get_ssd_value(l_block, r_block):
+  if l_block.shape != r_block.shape:
+    return -1
+  return np.sum((l_block - r_block)**2)
+
+def compare(x,y,l_block,img2, block_size, search_b_size):
+  y_search_size = 1
+  x_min = max(0, x - search_b_size)
+  x_max = min(img2.shape[1], x + search_b_size)
+  y_min = max(0, y - y_search_size)
+  y_max = min(img2.shape[0], y + y_search_size)
+
+  min_index = 0
+  flag = True
+  ssd_value = 0
+
+  for y in range(y_min, y_max):
+    for x in range(x_min, x_max):
+      r_block = img2[y:y+block_size, x:x+block_size]
+      ssd = get_ssd_value(l_block, r_block)
+      if flag:
+        ssd_value = ssd
+        min_index = (y,x)
+        flag = False
+      else:
+        if ssd<ssd_value:
+          ssd_value = ssd
+          min_index = (y,x)
+  return min_index
+
+def correspondence(img1, img2):
+  block_size = 10
+  h1,w1 = img1.shape
+  search_b_size = 50
+  disparity_map = np.zeros((h1, w1))
+  for y in tqdm(range(block_size, h1-block_size)):
+    for x in range(block_size, w1-block_size):
+      l_block = img1[y:y+block_size, x:x+block_size]
+      min_ind = compare(x,y,l_block,img2, block_size, search_b_size)
+      disparity_map[y,x] = abs(min_ind[1] - x)
+  
+  disparity_map_unscaled = disparity_map.copy()
+  max_pixel = np.max(disparity_map)
+  min_pixel = np.min(disparity_map)
+
+  for i in range(disparity_map.shape[0]):
+    for j in range(disparity_map.shape[1]):
+      disparity_map[i][j] = int((disparity_map[i][j]*255)/(max_pixel-min_pixel))
+
+  disparity_map_scaled = disparity_map
+  return disparity_map_unscaled, disparity_map_scaled
+
+def depth_calc(baseline, f, img):
+  depth_map = np.zeros((img.shape[0], img.shape[1]))
+  depth_array = np.zeros((img.shape[0], img.shape[1]))
+  for i in range(depth_map.shape[0]):
+      for j in range(depth_map.shape[1]):
+          depth_map[i][j] = 1/img[i][j]
+          depth_array[i][j] = baseline*f/img[i][j]
+  return depth_map, depth_array
